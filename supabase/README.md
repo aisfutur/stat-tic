@@ -2,9 +2,11 @@
 
 Projet : `bjlimtvimfcaxqtyqgqx` · `https://bjlimtvimfcaxqtyqgqx.supabase.co`
 
-Les deux migrations et le catalogue y sont **déjà appliqués** (33 exercices,
-5 échelles, 26 barreaux, 9 routines, 38 lignes de routine). Ce qui suit sert à
-rejouer le tout sur un projet neuf.
+Les deux migrations y sont **déjà appliquées**. Le catalogue courant compte
+132 exercices, 21 échelles, 121 barreaux, 19 routines et 90 lignes de routine ;
+après chaque modification de `src/data/*.ts`, il faut régénérer le seed puis le
+rejouer sur le projet (voir « Régénérer le catalogue »). Ce qui suit sert aussi
+à rejouer le tout sur un projet neuf.
 
 ## Brancher l'app
 

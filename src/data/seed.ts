@@ -121,8 +121,13 @@ export function makeSeedState(): AppState {
       { pathId: 'prog-pushup', currentStep: 3, unlockedAt: {} },
       { pathId: 'prog-pullup', currentStep: 3, unlockedAt: {} },
       { pathId: 'prog-squat', currentStep: 3, unlockedAt: {} },
-      { pathId: 'prog-planche', currentStep: 2, unlockedAt: {} },
+      // Les échelles statiques ont gagné des barreaux d'entrée : l'index
+      // suit la planche groupée et le front lever groupé, comme avant.
+      { pathId: 'prog-planche', currentStep: 3, unlockedAt: {} },
       { pathId: 'prog-frontlever', currentStep: 1, unlockedAt: {} },
+      { pathId: 'prog-lsit', currentStep: 2, unlockedAt: {} },
+      { pathId: 'prog-handstand', currentStep: 2, unlockedAt: {} },
+      { pathId: 'prog-backlever', currentStep: 2, unlockedAt: {} },
     ],
     customRoutines: [],
     activeRoutineId: 'rt-fb-3',

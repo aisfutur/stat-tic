@@ -21,7 +21,19 @@ export function Progressions() {
     () => TABS.filter((c) => PROGRESSIONS.some((p) => p.category === c)),
     [],
   )
-  const paths = PROGRESSIONS.filter((p) => p.category === tab)
+
+  /** Échelles de l'onglet courant, regroupées par famille. */
+  const groups = useMemo(() => {
+    const out: Array<{ family: string; paths: typeof PROGRESSIONS }> = []
+    for (const path of PROGRESSIONS) {
+      if (path.category !== tab) continue
+      const family = path.family ?? 'Autres'
+      const group = out.find((g) => g.family === family)
+      if (group) group.paths.push(path)
+      else out.push({ family, paths: [path] })
+    }
+    return out
+  }, [tab])
 
   const detailPath = detail ? PROGRESSIONS.find((p) => p.id === detail.pathId) : undefined
   const detailStep = detailPath?.steps[detail!.step]
@@ -72,29 +84,39 @@ export function Progressions() {
         ))}
       </div>
 
-      {/* Échelles */}
-      <div className="space-y-6 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
-        {paths.map((path) => {
-          const progress = progressFor(path.id)
-          const pct = Math.round((progress.currentStep / (path.steps.length - 1)) * 100)
-          return (
-            <section key={path.id}>
-              <div className="mb-3 flex items-end justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl leading-none">{path.name}</h2>
-                  <p className="num mt-1 text-xs text-muted">
-                    Étape {progress.currentStep + 1} / {path.steps.length} · {pct}%
-                  </p>
-                </div>
-              </div>
-              <ProgressionLadder
-                path={path}
-                currentStep={progress.currentStep}
-                onSelectStep={(step) => setDetail({ pathId: path.id, step })}
-              />
-            </section>
-          )
-        })}
+      {/* Échelles, par famille */}
+      <div className="space-y-8">
+        {groups.map((group) => (
+          <section key={group.family}>
+            <h2 className="label-xs mb-3 border-b border-concrete-600 pb-2">
+              {group.family}
+              <span className="num ml-2 text-locked">{group.paths.length}</span>
+            </h2>
+            <div className="space-y-6 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
+              {group.paths.map((path) => {
+                const progress = progressFor(path.id)
+                const pct = Math.round((progress.currentStep / (path.steps.length - 1)) * 100)
+                return (
+                  <div key={path.id}>
+                    <div className="mb-3 flex items-end justify-between gap-3">
+                      <div>
+                        <h3 className="text-2xl leading-none">{path.name}</h3>
+                        <p className="num mt-1 text-xs text-muted">
+                          Étape {progress.currentStep + 1} / {path.steps.length} · {pct}%
+                        </p>
+                      </div>
+                    </div>
+                    <ProgressionLadder
+                      path={path}
+                      currentStep={progress.currentStep}
+                      onSelectStep={(step) => setDetail({ pathId: path.id, step })}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        ))}
       </div>
 
       {/* Détail d'un barreau */}

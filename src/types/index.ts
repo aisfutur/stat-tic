@@ -46,6 +46,8 @@ export interface ProgressionPath {
   id: string
   name: string
   category: Category
+  /** Famille affichée dans l'écran Progressions (ex. « Statiques »). */
+  family?: string
   /** Liste ordonnée, de la variante la plus simple à la plus dure. */
   steps: ProgressionStep[]
 }
