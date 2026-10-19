@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-concrete-900 text-chalk font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Accessibilité : focus clavier toujours visible, jamais sur clic souris */
+  :focus-visible {
+    outline: 2px solid #6e9bc7;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display uppercase tracking-wide;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card bg-concrete-800 border border-concrete-600/70;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-concrete-600
+      bg-concrete-700/60 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-muted;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-soft px-4 py-3
+      text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-steel text-concrete-900 hover:bg-steel/90;
+  }
+  .btn-ember {
+    @apply btn bg-ember text-chalk hover:bg-ember/90;
+  }
+  .btn-ghost {
+    @apply btn border border-concrete-600 bg-concrete-700/50 text-chalk hover:bg-concrete-700;
+  }
+
+  .num {
+    @apply font-mono tabular-nums;
+  }
+
+  .field {
+    @apply w-full rounded-soft border border-concrete-600 bg-concrete-900/70 px-3 py-2
+      font-mono text-base text-chalk placeholder:text-locked focus:border-steel focus:outline-none;
+  }
+
+  .label-xs {
+    @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+
+  /* Rail pointillé vertical de l'échelle de progression */
+  .ladder-rail {
+    background-image: linear-gradient(to bottom, #4a4e4f 0 6px, transparent 6px 12px);
+    background-size: 2px 12px;
+    background-repeat: repeat-y;
+  }
+  .ladder-rail-done {
+    background-image: linear-gradient(to bottom, #7a9a63 0 6px, transparent 6px 12px);
+  }
+}
+
+/* Masque la scrollbar des rangées d'onglets scrollables */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

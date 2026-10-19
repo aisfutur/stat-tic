@@ -1,0 +1,170 @@
+import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useData } from '../hooks/useData'
+import { IconArrowLeft, IconDownload, IconTrash, IconUpload } from '../components/Icons'
+import { Sheet } from '../components/Sheet'
+import { AccountCard } from '../components/AccountCard'
+import { supabase } from '../lib/supabase'
+import { toDayKey } from '../lib/utils'
+
+export function Settings() {
+  const { state, setUserName, exportData, importData, resetData } = useData()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  function handleExport() {
+    const blob = new Blob([exportData()], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `barre-sauvegarde-${toDayKey()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    setMessage({ kind: 'ok', text: 'Sauvegarde téléchargée.' })
+  }
+
+  async function handleImport(file: File) {
+    try {
+      importData(await file.text())
+      setMessage({ kind: 'ok', text: 'Données importées.' })
+    } catch (err) {
+      setMessage({
+        kind: 'error',
+        text: err instanceof Error ? err.message : 'Import impossible.',
+      })
+    }
+  }
+
+  const sessionCount = state.sessions.length
+
+  return (
+    <div className="space-y-5">
+      <header className="flex items-center gap-3">
+        <Link
+          to="/"
+          className="rounded-full p-2 text-muted hover:bg-concrete-800 hover:text-chalk"
+          aria-label="Retour à l’accueil"
+        >
+          <IconArrowLeft size={20} />
+        </Link>
+        <h1 className="text-4xl leading-none">Réglages</h1>
+      </header>
+
+      <AccountCard />
+
+      <section className="card p-4">
+        <label htmlFor="user-name" className="label-xs mb-1.5 block">
+          Ton nom
+        </label>
+        <input
+          id="user-name"
+          type="text"
+          value={state.settings.name}
+          onChange={(e) => setUserName(e.target.value)}
+          className="field font-sans"
+        />
+        <p className="mt-2 text-xs text-muted">Affiché dans la salutation de l’accueil.</p>
+      </section>
+
+      <section className="card p-4">
+        <h2 className="text-xl leading-none">Mes données</h2>
+        <p className="mt-1.5 text-sm text-muted">
+          {supabase
+            ? 'Tout est enregistré sur ton espace Supabase, et dans ce navigateur le temps d’une séance. Un export reste la seule copie que tu gardes hors ligne.'
+            : 'Tout est stocké dans ce navigateur. Il n’y a pas de compte ni de sauvegarde cloud : exporte régulièrement si tes données comptent.'}
+        </p>
+        <p className="num mt-3 text-sm text-chalk">
+          {sessionCount} séances · {state.customRoutines.length} routines perso
+        </p>
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button type="button" onClick={handleExport} className="btn-ghost flex-1">
+            <IconDownload size={16} /> Exporter (JSON)
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="btn-ghost flex-1"
+          >
+            <IconUpload size={16} /> Importer
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void handleImport(file)
+              e.target.value = ''
+            }}
+          />
+        </div>
+
+        {message && (
+          <p
+            className={
+              message.kind === 'ok' ? 'mt-3 text-xs text-moss' : 'mt-3 text-xs text-ember'
+            }
+          >
+            {message.text}
+          </p>
+        )}
+      </section>
+
+      <section className="card border-ember/30 p-4">
+        <h2 className="text-xl leading-none">Zone sensible</h2>
+        <p className="mt-1.5 text-sm text-muted">
+          Réinitialise l’app avec l’historique de démonstration. Tes séances enregistrées
+          seront perdues.
+        </p>
+        <button
+          type="button"
+          onClick={() => setConfirmReset(true)}
+          className="btn-ghost mt-4 w-full text-ember"
+        >
+          <IconTrash size={16} /> Réinitialiser les données
+        </button>
+      </section>
+
+      <p className="pb-4 text-center text-xs text-locked">
+        Barre · app personnelle, sans compte ni fonctionnalité sociale.
+      </p>
+
+      <Sheet
+        open={confirmReset}
+        title="Tout réinitialiser ?"
+        onClose={() => setConfirmReset(false)}
+        footer={
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                resetData()
+                setConfirmReset(false)
+                setMessage({ kind: 'ok', text: 'Données réinitialisées.' })
+              }}
+              className="btn-ember"
+            >
+              Oui, tout effacer
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmReset(false)}
+              className="btn-ghost"
+            >
+              Annuler
+            </button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted">
+          Tes <span className="num text-chalk">{sessionCount}</span> séances et tes
+          progressions seront remplacées par le jeu de démonstration. Pense à exporter
+          d’abord.
+        </p>
+      </Sheet>
+    </div>
+  )
+}
