@@ -78,16 +78,21 @@ export function Home() {
 
       {/* Streak + semaine */}
       <section className="card p-4">
-        <div className="flex items-center justify-between gap-4">
+        {/*
+          En colonne sous 640 px : côte à côte, le bloc streak (~160 px) et les
+          sept cases (7 × 32 px + gouttières = 260 px) dépassent la largeur
+          utile d'un téléphone, et les cases finissaient écrasées ou rognées.
+        */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span
-              className="flex h-12 w-12 items-center justify-center rounded-full
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full
                 bg-ember/15 text-ember"
               aria-hidden="true"
             >
               <IconFlame size={24} />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="num text-3xl font-bold leading-none text-ember">{streak}</p>
               <p className="label-xs mt-1">
                 {streak === 1 ? 'jour d’affilée' : 'jours d’affilée'}
@@ -95,13 +100,18 @@ export function Home() {
             </div>
           </div>
 
-          <ul className="flex gap-1.5" aria-label="Séances de la semaine">
+          {/* Grille de 7 colonnes égales sur mobile (les cases s'étirent),
+              rangée à largeur fixe dès que la place le permet. */}
+          <ul
+            className="grid grid-cols-7 gap-1.5 sm:flex sm:shrink-0"
+            aria-label="Séances de la semaine"
+          >
             {week.map((day, i) => (
-              <li key={day.date}>
+              <li key={day.date} className="min-w-0">
                 <div
                   title={day.date}
                   className={cx(
-                    'flex h-10 w-8 flex-col items-center justify-center rounded-soft border text-[10px] font-semibold',
+                    'flex h-10 w-full flex-col items-center justify-center rounded-soft border text-[10px] font-semibold sm:w-8',
                     day.trained
                       ? 'border-moss/50 bg-moss/20 text-moss'
                       : day.future

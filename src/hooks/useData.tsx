@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react'
 import type {
@@ -20,8 +21,8 @@ import type {
 import { allExercises, getExercise, setCustomExercises } from '../data/exercises'
 import { ROUTINES } from '../data/routines'
 import { localRepository, parseImportedState, type Repository } from '../data/repository'
-import { STATE_VERSION } from '../data/constants'
-import { makeSeedState } from '../data/seed'
+import { getSyncStatus, subscribeSyncStatus, type SyncStatus } from '../data/syncStatus'
+import { makeEmptyState, makeSeedState } from '../data/seed'
 import { toDayKey, uid } from '../lib/utils'
 
 /** Champs saisis dans le formulaire « nouvel exercice ». */
@@ -37,6 +38,10 @@ export interface NewExerciseInput {
 interface DataContextValue {
   state: AppState
   loading: boolean
+  /** Résultat de la dernière écriture : `error` = rien n'est enregistré. */
+  syncStatus: SyncStatus
+  /** Rejoue l'écriture en attente après un échec. */
+  retrySave(): void
   /** Routines intégrées + routines personnalisées. */
   routines: Routine[]
   /** Catalogue intégré + exercices perso. */
@@ -75,19 +80,13 @@ interface DataContextValue {
   setUserName(name: string): void
   exportData(): string
   importData(json: string): void
+  /** Efface séances, progressions et perso ; garde le nom de l'athlète. */
   resetData(): void
+  /** Charge l'historique de démonstration, à la demande explicite. */
+  loadDemoData(): void
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
-
-const EMPTY_STATE: AppState = {
-  version: STATE_VERSION,
-  sessions: [],
-  progress: [],
-  customRoutines: [],
-  customExercises: [],
-  settings: { name: 'Athlète' },
-}
 
 export function DataProvider({
   children,
@@ -96,7 +95,7 @@ export function DataProvider({
   children: ReactNode
   repository?: Repository
 }) {
-  const [state, setState] = useState<AppState>(EMPTY_STATE)
+  const [state, setState] = useState<AppState>(makeEmptyState)
   const [loading, setLoading] = useState(true)
   // Évite d'écraser le stockage avec l'état vide avant le chargement initial.
   const hydrated = useRef(false)
@@ -123,10 +122,28 @@ export function DataProvider({
     }
   }, [repository])
 
+  // Certains changements ne peuvent pas attendre le regroupement des
+  // écritures (700 ms côté Supabase) : une séance terminée doit partir tout de
+  // suite, sinon un téléphone verrouillé dans la seconde la perd.
+  const flushAfterSave = useRef(false)
+
   useEffect(() => {
     if (!hydrated.current) return
+    if (flushAfterSave.current) {
+      flushAfterSave.current = false
+      // Enchaîné sur `save()` plutôt qu'appelé juste après : `flush()` ne doit
+      // vider la file qu'une fois le nouvel état déposé dedans.
+      void repository.save(state).then(() => repository.flush())
+      return
+    }
     void repository.save(state)
   }, [state, repository])
+
+  const syncStatus = useSyncExternalStore(subscribeSyncStatus, getSyncStatus)
+
+  const retrySave = useCallback(() => {
+    void repository.flush()
+  }, [repository])
 
   const routines = useMemo(
     () => [...ROUTINES, ...state.customRoutines],
@@ -205,6 +222,9 @@ export function DataProvider({
   }, [])
 
   const finishSession = useCallback<DataContextValue['finishSession']>(() => {
+    // Records, streak et courbes se recalculent depuis les séances : ce qui
+    // compte, c'est que celle-ci arrive en base sans délai.
+    flushAfterSave.current = true
     let saved: Session | undefined
     setState((s) => {
       const active = s.activeSession
@@ -345,6 +365,7 @@ export function DataProvider({
   )
 
   const deleteSession = useCallback<DataContextValue['deleteSession']>((sessionId) => {
+    flushAfterSave.current = true
     setState((s) => ({ ...s, sessions: s.sessions.filter((x) => x.id !== sessionId) }))
   }, [])
 
@@ -456,13 +477,26 @@ export function DataProvider({
   }, [])
 
   const resetData = useCallback(() => {
-    setState(makeSeedState())
+    flushAfterSave.current = true
+    // Le nom est un réglage, pas une donnée d'entraînement : on le garde.
+    setState((s) => ({ ...makeEmptyState(), settings: { name: s.settings.name } }))
+  }, [])
+
+  const loadDemoData = useCallback(() => {
+    flushAfterSave.current = true
+    setState((s) => {
+      const demo = makeSeedState()
+      demo.settings.name = s.settings.name
+      return demo
+    })
   }, [])
 
   const value = useMemo<DataContextValue>(
     () => ({
       state,
       loading,
+      syncStatus,
+      retrySave,
       routines,
       exercises: catalogue,
       activeRoutine,
@@ -489,10 +523,13 @@ export function DataProvider({
       exportData,
       importData,
       resetData,
+      loadDemoData,
     }),
     [
       state,
       loading,
+      syncStatus,
+      retrySave,
       routines,
       catalogue,
       activeRoutine,
@@ -519,6 +556,7 @@ export function DataProvider({
       exportData,
       importData,
       resetData,
+      loadDemoData,
     ],
   )
 

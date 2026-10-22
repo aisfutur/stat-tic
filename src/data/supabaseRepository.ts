@@ -12,7 +12,7 @@ import type {
 import { supabase } from '../lib/supabase'
 import { STATE_VERSION } from './constants'
 import type { Repository } from './repository'
-import { makeSeedState } from './seed'
+import { reportSyncError, reportSyncOk } from './syncStatus'
 
 /**
  * Implémentation Supabase de l'interface `Repository`.
@@ -326,16 +326,6 @@ async function fetchState(db: SupabaseClient, uid: string): Promise<AppState> {
   }
 }
 
-function isFreshAccount(state: AppState) {
-  return (
-    state.sessions.length === 0 &&
-    state.progress.length === 0 &&
-    state.customRoutines.length === 0 &&
-    state.customExercises.length === 0 &&
-    !state.activeSession
-  )
-}
-
 // ─── Écriture ───────────────────────────────────────────────────────
 
 /**
@@ -575,10 +565,19 @@ function flush() {
   if (!state) return chain
   chain = chain
     .then(() => sync(state))
+    .then(() => reportSyncOk())
     .catch((err) => {
       console.warn(
         '[barre] écriture Supabase impossible, nouvelle tentative au prochain changement',
         err,
+      )
+      // L'état reste en attente : un nouveau changement ou un « Réessayer »
+      // rejoue l'écriture, et `snapshot` n'a pas bougé donc rien n'est perdu.
+      if (!pending) pending = state
+      reportSyncError(
+        err instanceof Error
+          ? `Enregistrement en ligne impossible : ${err.message}`
+          : 'Enregistrement en ligne impossible.',
       )
     })
   return chain
@@ -606,15 +605,10 @@ export const supabaseRepository: Repository = {
     userId = data.user.id
 
     try {
+      // Un compte neuf arrive vide, et c'est voulu : écrire l'historique de
+      // démonstration ici rendrait faux le streak, les records et les courbes
+      // du premier jour. La démo se charge depuis les réglages, à la demande.
       const state = await fetchState(db, userId)
-      if (isFreshAccount(state)) {
-        // Compte neuf : même amorçage que la version localStorage, mais la
-        // démo est écrite en base pour que les deux restent cohérents.
-        const seeded = makeSeedState()
-        seeded.settings.name = state.settings.name
-        await sync(seeded)
-        return seeded
-      }
       snapshot = clone(state)
       return state
     } catch (err) {
@@ -622,6 +616,9 @@ export const supabaseRepository: Repository = {
       // un état partiel serait pire qu'un écran vide.
       degraded = true
       console.error('[barre] lecture Supabase impossible, écritures suspendues', err)
+      reportSyncError(
+        'Données en ligne illisibles : rien ne sera enregistré tant que l’app n’est pas rechargée.',
+      )
       throw err instanceof Error ? err : new Error(String(err))
     }
   },
@@ -634,6 +631,15 @@ export const supabaseRepository: Repository = {
       timer = undefined
       void flush()
     }, SAVE_DEBOUNCE_MS)
+  },
+
+  /**
+   * Vide la file d'attente tout de suite. `useData` l'appelle à la fin d'une
+   * séance : attendre les 700 ms de regroupement, c'est risquer de perdre la
+   * séance si l'athlète verrouille son téléphone dans la seconde.
+   */
+  async flush() {
+    await flush()
   },
 
   async clear() {

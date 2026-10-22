@@ -16,11 +16,12 @@ const THEME_OPTIONS: Array<{ value: ThemeChoice; label: string; hint: string }> 
 ]
 
 export function Settings() {
-  const { state, setUserName, exportData, importData, resetData } = useData()
+  const { state, setUserName, exportData, importData, resetData, loadDemoData } = useData()
   const { choice: themeChoice, theme, setChoice: setThemeChoice } = useTheme()
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [confirmDemo, setConfirmDemo] = useState(false)
 
   function handleExport() {
     const blob = new Blob([exportData()], { type: 'application/json' })
@@ -174,15 +175,28 @@ export function Settings() {
       <section className="card border-ember/30 p-4">
         <h2 className="text-xl leading-none">Zone sensible</h2>
         <p className="mt-1.5 text-sm text-muted">
-          Réinitialise l’app avec l’historique de démonstration. Tes séances enregistrées
-          seront perdues.
+          Efface toutes tes séances et tes progressions. Ton nom et ton thème sont
+          conservés. Pense à exporter d’abord.
         </p>
         <button
           type="button"
           onClick={() => setConfirmReset(true)}
           className="btn-ghost mt-4 w-full text-ember"
         >
-          <IconTrash size={16} /> Réinitialiser les données
+          <IconTrash size={16} /> Effacer mes données
+        </button>
+
+        <p className="mt-4 border-t border-concrete-600 pt-4 text-sm text-muted">
+          L’historique de démonstration (10 semaines de séances fictives) sert à voir les
+          écrans remplis. Il <span className="text-chalk">remplace</span> tes données
+          réelles : streak, records et courbes deviennent ceux de la démo.
+        </p>
+        <button
+          type="button"
+          onClick={() => setConfirmDemo(true)}
+          className="btn-ghost mt-3 w-full"
+        >
+          Charger l’historique de démo
         </button>
       </section>
 
@@ -192,7 +206,7 @@ export function Settings() {
 
       <Sheet
         open={confirmReset}
-        title="Tout réinitialiser ?"
+        title="Tout effacer ?"
         onClose={() => setConfirmReset(false)}
         footer={
           <div className="flex flex-col gap-2">
@@ -201,7 +215,7 @@ export function Settings() {
               onClick={() => {
                 resetData()
                 setConfirmReset(false)
-                setMessage({ kind: 'ok', text: 'Données réinitialisées.' })
+                setMessage({ kind: 'ok', text: 'Données effacées.' })
               }}
               className="btn-ember"
             >
@@ -218,9 +232,43 @@ export function Settings() {
         }
       >
         <p className="text-sm text-muted">
-          Tes <span className="num text-chalk">{sessionCount}</span> séances et tes
-          progressions seront remplacées par le jeu de démonstration. Pense à exporter
-          d’abord.
+          Tes <span className="num text-chalk">{sessionCount}</span> séances, tes
+          progressions, tes routines et tes exercices perso seront supprimés, ici comme
+          en ligne. Pense à exporter d’abord.
+        </p>
+      </Sheet>
+
+      <Sheet
+        open={confirmDemo}
+        title="Charger la démo ?"
+        onClose={() => setConfirmDemo(false)}
+        footer={
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                loadDemoData()
+                setConfirmDemo(false)
+                setMessage({ kind: 'ok', text: 'Historique de démonstration chargé.' })
+              }}
+              className="btn-ember"
+            >
+              Oui, charger la démo
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDemo(false)}
+              className="btn-ghost"
+            >
+              Annuler
+            </button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted">
+          Tes <span className="num text-chalk">{sessionCount}</span> séances seront
+          remplacées par <span className="text-chalk">10 semaines de séances fictives</span>.
+          À n’utiliser que pour explorer l’app.
         </p>
       </Sheet>
     </div>

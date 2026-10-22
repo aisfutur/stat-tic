@@ -31,9 +31,9 @@ React 18 + TypeScript, Vite 5, Tailwind CSS 3, React Router 6, Recharts,
 | `/seance` | Séance en cours | Logging série par série, minuteur de repos, supersets, isométriques |
 | `/progressions` | Progressions | Échelles par compétence, détail et critère de passage |
 | `/routines` | Routines | Plans par niveaux + création de routine personnalisée |
-| `/stats` | Statistiques | Courbe d'évolution, ratio pousser/tirer, heatmap 12 semaines |
+| `/stats` | Statistiques | Onglet Analyse (courbe, ratio pousser/tirer, heatmap) + onglet Historique |
 | `/historique` | Historique | Séances passées, détail, suppression |
-| `/reglages` | Réglages | Nom, thème (sombre / clair / système), export / import JSON, réinitialisation |
+| `/reglages` | Réglages | Nom, thème (sombre / clair / système), export / import JSON, effacement, démo |
 
 ## Architecture
 
@@ -44,7 +44,8 @@ src/
     constants.ts        Clé et version de stockage
     repository.ts       Interface Repository + implémentation localStorage
     supabaseRepository.ts  Implémentation Supabase (séances, progressions, perso)
-    seed.ts             Historique de démonstration (10 semaines)
+    seed.ts             État de départ vide + historique de démonstration
+    syncStatus.ts       État de la dernière écriture (canal d'alerte)
     exercises.ts        Catalogue d'exercices + registre des exercices perso
     progressions.ts     Échelles de progression et critères
     routines.ts         Routines intégrées
@@ -57,6 +58,7 @@ src/
     stats.ts            Streak, records, heatmap, ratios (calculés à la volée)
     utils.ts            Dates, durées, helpers
   components/           TabBar, ProgressionLadder, RestTimer, Sheet, Heatmap,
+                        SessionHistory (liste de séances partagée), SyncIndicator,
                         AuthGate (connexion), AccountCard…
   screens/              Un fichier par écran
 
@@ -101,6 +103,25 @@ Aucun composant ne touche à `localStorage` directement — à une exception pr�
 assumée : le thème (`hooks/useTheme.tsx`). C'est un réglage d'appareil et non
 de compte, et il doit s'appliquer avant le chargement des données, donc avant
 que le `Repository` ait répondu.
+
+## Données réelles
+
+Un compte neuf démarre **vide**. L'historique de démonstration (36 séances,
+un streak de 3 jours, un record de 10 tractions) ne s'écrit plus tout seul : il
+se charge depuis Réglages → Zone sensible, et seulement sur demande. Sinon
+streak, records et courbes d'évolution décriraient des séances qui n'ont jamais
+eu lieu.
+
+Tout le reste est dérivé des séances enregistrées, calculé à la volée par
+`lib/stats.ts` : il n'y a aucun compteur de record stocké à maintenir à jour.
+La seule chose qui doit donc être garantie, c'est l'écriture :
+
+- les écritures Supabase sont regroupées (700 ms), **sauf** fin de séance et
+  suppression de séance, qui déclenchent un envoi immédiat (`Repository.flush()`) ;
+- `duration_seconds` est une colonne générée par Postgres à partir de
+  `ended_at - started_at` : l'app ne l'écrit pas, et ne peut pas la désynchroniser ;
+- un échec d'écriture n'est plus silencieux : il remonte par `data/syncStatus.ts`
+  et s'affiche en haut de l'écran avec un bouton « Réessayer ».
 
 ## Thème
 
@@ -162,6 +183,6 @@ miniature sur l'accueil (`MiniLadder`).
 Avec Supabase configuré, tout est dans la base, rangé par `user_id` et isolé
 par la RLS. Sans Supabase, tout est dans `localStorage` sous la clé
 `barre.state.v1`. Dans les deux cas **Réglages → Exporter** produit un fichier
-JSON à conserver, et **Réglages → Réinitialiser** repart de l'historique de
-démonstration de 10 semaines — qui est aussi ce qu'un compte neuf reçoit à sa
-première connexion.
+JSON à conserver. **Réglages → Effacer mes données** repart d'un état vide en
+gardant le nom et le thème ; l'historique de démonstration est un bouton
+distinct, jamais appliqué automatiquement (voir « Données réelles »).

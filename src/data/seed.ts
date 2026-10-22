@@ -5,10 +5,29 @@ import { addDays, toDayKey, uid } from '../lib/utils'
 import { STATE_VERSION } from './constants'
 
 /**
- * Historique de démonstration : 10 semaines de séances avec une
- * progression réaliste, pour que l'accueil et les stats aient du contenu
- * au premier lancement. `Effacer les données` repart de cet état.
+ * États de départ.
+ *
+ * `makeEmptyState()` est ce que voit un compte neuf : aucune séance, donc un
+ * streak, des records et des courbes qui ne décrivent que de vraies séances.
+ *
+ * `makeSeedState()` est un historique de démonstration (10 semaines, avec une
+ * progression réaliste) : utile pour voir à quoi ressemblent les écrans
+ * remplis, mais chargé seulement si l'athlète le demande depuis les réglages.
+ * Ces séances ne doivent jamais arriver dans un compte par surprise : elles
+ * fausseraient tous les chiffres.
  */
+
+export function makeEmptyState(): AppState {
+  return {
+    version: STATE_VERSION,
+    sessions: [],
+    progress: [],
+    customRoutines: [],
+    customExercises: [],
+    activeRoutineId: 'rt-fb-3',
+    settings: { name: 'Athlète' },
+  }
+}
 
 /** Générateur pseudo-aléatoire déterministe : même démo à chaque fois. */
 function makeRng(seed: number) {
