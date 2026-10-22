@@ -4,7 +4,6 @@ import { useData } from '../hooks/useData'
 import { useTheme, type ThemeChoice } from '../hooks/useTheme'
 import { IconArrowLeft, IconDownload, IconTrash, IconUpload } from '../components/Icons'
 import { Sheet } from '../components/Sheet'
-import { AccountCard } from '../components/AccountCard'
 import { supabase } from '../lib/supabase'
 import { cx, toDayKey } from '../lib/utils'
 
@@ -60,8 +59,6 @@ export function Settings() {
         </Link>
         <h1 className="text-4xl leading-none">Réglages</h1>
       </header>
-
-      <AccountCard />
 
       <section className="card p-4">
         <label htmlFor="user-name" className="label-xs mb-1.5 block">
@@ -129,8 +126,8 @@ export function Settings() {
         <h2 className="text-xl leading-none">Mes données</h2>
         <p className="mt-1.5 text-sm text-muted">
           {supabase
-            ? 'Tout est enregistré sur ton espace Supabase, et dans ce navigateur le temps d’une séance. Un export reste la seule copie que tu gardes hors ligne.'
-            : 'Tout est stocké dans ce navigateur. Il n’y a pas de compte ni de sauvegarde cloud : exporte régulièrement si tes données comptent.'}
+            ? 'Tout est enregistré dans ta base Supabase, sans compte ni connexion : l’app est la seule à y écrire. Un export reste la seule copie que tu gardes hors ligne.'
+            : 'Tout est stocké dans ce navigateur. Il n’y a pas de sauvegarde en ligne : exporte régulièrement si tes données comptent.'}
         </p>
         <p className="num mt-3 text-sm text-chalk">
           {sessionCount} séances · {state.customRoutines.length} routines perso ·{' '}

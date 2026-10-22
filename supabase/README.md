@@ -2,7 +2,7 @@
 
 Projet : `bjlimtvimfcaxqtyqgqx` · `https://bjlimtvimfcaxqtyqgqx.supabase.co`
 
-Les deux migrations y sont **déjà appliquées**. Le catalogue courant compte
+Les quatre migrations y sont **déjà appliquées**. Le catalogue courant compte
 132 exercices, 21 échelles, 121 barreaux, 19 routines et 90 lignes de routine ;
 après chaque modification de `src/data/*.ts`, il faut régénérer le seed puis le
 rejouer sur le projet (voir « Régénérer le catalogue »). Ce qui suit sert aussi
@@ -17,16 +17,18 @@ cp ../.env.example ../.env.local   # VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHAB
 La clé publiable est faite pour le navigateur : c'est la RLS qui protège les
 lignes, jamais le secret de la clé. Ne jamais exposer `service_role`.
 
-Au premier lancement, l'app demande un e-mail et un mot de passe. Ce compte ne
-sert qu'à fournir un `auth.uid()` à la RLS ; le trigger `handle_new_user` crée
-le profil, et `supabaseRepository` écrit l'historique de démonstration dans la
-base. Les confirmations d'e-mail sont actives par défaut sur un projet
-Supabase : le lien reçu doit être ouvert avant la première connexion.
+Il n'y a **ni compte ni écran de connexion** : l'app a un seul utilisateur.
+Toutes les lignes portent le propriétaire fixe `public.owner_id()`
+(`00000000-0000-4000-8000-000000000001`), qui doit rester identique à `OWNER_ID`
+dans `src/data/constants.ts`. La RLS est toujours active et compare à ce
+propriétaire ; elle garde son second rôle, empêcher l'API de modifier le
+catalogue intégré (`user_id is null`).
 
-Variante sans compte : activer **Authentication → Sign In / Up → Anonymous
-sign-ins** dans le dashboard, puis remplacer l'appel `signInWithPassword` de
-`AuthGate` par `signInAnonymously()`. La RLS continue de fonctionner, un
-utilisateur anonyme recevant lui aussi un `auth.uid()`.
+Conséquence à assumer : le rôle `anon` — celui de la clé publiable, embarquée
+dans le bundle — a l'accès en écriture. Qui récupère la clé peut lire et
+modifier le journal d'entraînement. C'est le prix du « pas de compte ». Pour
+refermer : rendre les politiques à `auth.uid()` et remettre un écran de
+connexion (`git revert` de la migration `single_owner` et du commit applicatif).
 
 ## Appliquer
 
@@ -35,7 +37,9 @@ utilisateur anonyme recevant lui aussi un `auth.uid()`.
 1. Dashboard Supabase → **SQL Editor** → **New query**
 2. Colle `migrations/20261019120000_init.sql`, exécute
 3. Puis `migrations/20261019130000_harden_functions.sql`
-4. Nouvelle requête : colle `seed/catalogue.sql`, exécute
+4. Puis `migrations/20261022131720_single_owner.sql` (propriétaire fixe, sans compte)
+5. Puis `migrations/20261022132049_historique_view.sql` (vue de lecture)
+6. Nouvelle requête : colle `seed/catalogue.sql`, exécute
 
 ### Option B — CLI
 
@@ -108,10 +112,11 @@ pointer vers un exercice intégré.
 | `training_days` | base du streak et de la heatmap |
 | `volume_by_category` | `volumeByCategory()`, `pushPullBalance()` |
 | `current_streak()` | `computeStreak()` |
+| `historique` | le carnet à plat, une ligne par série |
 | `sessions.duration_seconds` | colonne générée depuis `started_at`/`ended_at` |
 | `routines.is_custom` | colonne générée depuis `user_id` |
 
-Les trois vues sont en `security_invoker = on` : elles s'exécutent avec les
+Les quatre vues sont en `security_invoker = on` : elles s'exécutent avec les
 droits de l'appelant, donc la RLS des tables sous-jacentes continue de
 s'appliquer. Rien n'oblige à les utiliser — les fonctions de `src/lib/stats.ts`
 restent valables si tu préfères tout calculer côté client.
@@ -123,7 +128,7 @@ restent valables si tu préfères tout calculer côté client.
 - `ended_at` ne peut pas précéder `started_at`.
 - Deux barreaux ne peuvent pas occuper le même rang dans une échelle.
 - `difficulty` 1–5, `level` 1–5, `frequency_per_week` 1–7.
-- Supprimer un compte efface toutes ses données ; le catalogue partagé survit.
+- Supprimer une ligne du propriétaire n'affecte pas le catalogue partagé.
 - Supprimer une séance supprime ses exercices et séries en cascade ; supprimer
   un exercice du catalogue est **refusé** s'il apparaît dans une séance
   (`on delete restrict`), pour ne pas perdre d'historique.
@@ -148,4 +153,9 @@ restent valables si tu préfères tout calculer côté client.
   dernier état connu). Une séance ouverte dans deux onglets n'est donc pas
   fusionnée : le dernier qui écrit gagne.
 - **Un échec de lecture suspend les écritures** plutôt que de risquer
-  d'écraser le distant avec un état partiel ; la console le signale.
+  d'écraser le distant avec un état partiel. Depuis l'ajout de
+  `src/data/syncStatus.ts`, l'app l'affiche aussi à l'écran (bandeau « Non
+  enregistré » + Réessayer) au lieu de ne le dire qu'à la console.
+- **La fin de séance court-circuite le regroupement** : `Repository.flush()`
+  envoie tout de suite, pour ne pas perdre la séance si le téléphone se
+  verrouille dans la seconde.

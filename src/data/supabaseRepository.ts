@@ -10,7 +10,7 @@ import type {
   UserProgress,
 } from '../types'
 import { supabase } from '../lib/supabase'
-import { STATE_VERSION } from './constants'
+import { OWNER_ID, STATE_VERSION } from './constants'
 import type { Repository } from './repository'
 import { reportSyncError, reportSyncOk } from './syncStatus'
 
@@ -37,7 +37,11 @@ const INSERT_CHUNK = 500
 
 // ─── État du module ─────────────────────────────────────────────────
 
-let userId: string | null = null
+/**
+ * Propriétaire des lignes. Constant : il n'y a ni compte ni session à
+ * attendre, l'app peut lire et écrire dès le premier rendu.
+ */
+const userId: string = OWNER_ID
 /** Dernier état connu de la base, pour n'écrire que les différences. */
 let snapshot: AppState | null = null
 /** Chargement échoué : on n'écrit plus, pour ne pas écraser le distant. */
@@ -535,7 +539,6 @@ async function syncSessions(db: SupabaseClient, uid: string, state: AppState, pr
 async function sync(state: AppState) {
   const db = client()
   const uid = userId
-  if (!uid) return
 
   const prev = snapshot
   await syncExercises(db, uid, state, prev)
@@ -597,13 +600,6 @@ export const supabaseRepository: Repository = {
     degraded = false
     pending = null
 
-    const { data, error } = await db.auth.getUser()
-    if (error || !data.user) {
-      degraded = true
-      throw new Error(error?.message ?? 'Session absente : connexion requise.')
-    }
-    userId = data.user.id
-
     try {
       // Un compte neuf arrive vide, et c'est voulu : écrire l'historique de
       // démonstration ici rendrait faux le streak, les records et les courbes
@@ -624,7 +620,9 @@ export const supabaseRepository: Repository = {
   },
 
   async save(state) {
-    if (degraded || !userId) return
+    // `degraded` = la lecture initiale a échoué : on n'écrase pas le distant
+    // avec un état partiel.
+    if (degraded) return
     pending = state
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
@@ -645,7 +643,6 @@ export const supabaseRepository: Repository = {
   async clear() {
     const db = client()
     const uid = userId
-    if (!uid) return
     pending = null
     if (timer) {
       clearTimeout(timer)

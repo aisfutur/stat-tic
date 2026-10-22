@@ -35,6 +35,9 @@ React 18 + TypeScript, Vite 5, Tailwind CSS 3, React Router 6, Recharts,
 | `/historique` | Historique | Séances passées, détail, suppression |
 | `/reglages` | Réglages | Nom, thème (sombre / clair / système), export / import JSON, effacement, démo |
 
+Pas d'écran de connexion : l'app est mono-propriétaire (voir « Un seul
+propriétaire, pas de compte »).
+
 ## Architecture
 
 ```
@@ -59,7 +62,7 @@ src/
     utils.ts            Dates, durées, helpers
   components/           TabBar, ProgressionLadder, RestTimer, Sheet, Heatmap,
                         SessionHistory (liste de séances partagée), SyncIndicator,
-                        AuthGate (connexion), AccountCard…
+                        ExercisePicker…
   screens/              Un fichier par écran
 
 scripts/gen-seed.ts     Génère le seed SQL depuis src/data/*.ts
@@ -84,14 +87,38 @@ entier à chaque frappe : les écritures sont regroupées (700 ms) et sérialis�
 et un instantané du dernier état connu permet de ne réécrire que les séances et
 routines dont le JSON a changé.
 
-L'authentification (e-mail + mot de passe, `components/AuthGate.tsx`) n'est là
-que pour donner un `auth.uid()` à la RLS — pas de profil public, pas de
-partage. La déconnexion est dans **Réglages → Compte**.
+#### Un seul propriétaire, pas de compte
+
+L'app n'a qu'un utilisateur : son auteur. Il n'y a donc ni inscription, ni
+écran de connexion. Toutes les lignes portent un propriétaire fixe,
+`OWNER_ID` dans `src/data/constants.ts`, qui doit rester identique à la
+fonction `public.owner_id()` en base (migration `20261022131720_single_owner`).
+La RLS est toujours active et compare à ce propriétaire : elle garde son second
+rôle, empêcher l'API de modifier le catalogue intégré (`user_id is null`).
+
+⚠ Le revers : la clé publiable est embarquée dans le bundle de l'app déployée,
+et le rôle `anon` a l'accès en écriture. Qui récupère la clé peut lire et
+modifier ce journal d'entraînement. C'est le prix du « pas de compte » sur une
+app perso ; pour refermer, il suffit de rendre les politiques à `auth.uid()` et
+de remettre un écran de connexion.
+
+#### Lire ses séances en SQL
+
+Les séances s'écrivent dans trois tables (`sessions`, `session_exercises`,
+`sets`), pratiques pour l'app mais pénibles à lire. La vue `public.historique`
+les remet à plat, une ligne par série, et se lit comme un carnet
+d'entraînement :
+
+```sql
+select date, seance, exercice, serie, reps, seconds, lest_kg from public.historique;
+select * from public.exercise_daily_bests;  -- records par exercice et par jour
+select public.current_streak();             -- streak en cours
+```
 
 ### Changer de base de données
 
 Toute la persistance passe par l'interface `Repository`
-(`load` / `save` / `clear`) définie dans `src/data/repository.ts`.
+(`load` / `save` / `flush` / `clear`) définie dans `src/data/repository.ts`.
 Pour brancher une vraie base, il suffit de fournir une autre implémentation
 et de la passer au provider :
 
@@ -100,9 +127,9 @@ et de la passer au provider :
 ```
 
 Aucun composant ne touche à `localStorage` directement — à une exception près,
-assumée : le thème (`hooks/useTheme.tsx`). C'est un réglage d'appareil et non
-de compte, et il doit s'appliquer avant le chargement des données, donc avant
-que le `Repository` ait répondu.
+assumée : le thème (`hooks/useTheme.tsx`). C'est un réglage d'appareil, et il
+doit s'appliquer avant le chargement des données, donc avant que le
+`Repository` ait répondu.
 
 ## Données réelles
 
@@ -138,7 +165,7 @@ des SVG, qui exigent une couleur et non une classe, passent par
 
 Le catalogue intégré (132 exercices) vit dans `src/data/exercises.ts`. Un
 exercice créé depuis le sélecteur est stocké dans `AppState.customExercises`
-— donc dans la table `exercises` de Supabase avec `user_id = auth.uid()`, ou
+— donc dans la table `exercises` de Supabase avec `user_id = OWNER_ID`, ou
 dans `localStorage`. Comme `lib/stats.ts` et le seed doivent résoudre un
 identifiant sans contexte React, le `DataProvider` publie la liste dans le
 registre de `data/exercises.ts` pendant son rendu, et tout le code lit
