@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
 import { AuthGate } from './components/AuthGate'
 import { DataProvider } from './hooks/useData'
+import { ThemeProvider } from './hooks/useTheme'
 import { localRepository } from './data/repository'
 import { supabaseRepository } from './data/supabaseRepository'
 import { supabase } from './lib/supabase'
@@ -18,15 +19,17 @@ const repository = supabase ? supabaseRepository : localRepository
 
 createRoot(container).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthGate>
-        {(userId) => (
-          // La clé remonte un store neuf quand on change de compte.
-          <DataProvider key={userId ?? 'local'} repository={repository}>
-            <App />
-          </DataProvider>
-        )}
-      </AuthGate>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthGate>
+          {(userId) => (
+            // La clé remonte un store neuf quand on change de compte.
+            <DataProvider key={userId ?? 'local'} repository={repository}>
+              <App />
+            </DataProvider>
+          )}
+        </AuthGate>
+      </BrowserRouter>
+    </ThemeProvider>
   </StrictMode>,
 )

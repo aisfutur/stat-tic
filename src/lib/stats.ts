@@ -1,5 +1,5 @@
 import type { Category, ChartPoint, Session, SetEntry } from '../types'
-import { EXERCISE_BY_ID } from '../data/exercises'
+import { getExercise } from '../data/exercises'
 import { addDays, daysBetween, startOfWeek, toDayKey } from './utils'
 
 /** Valeur mesurée d'une série, quel que soit son type. */
@@ -104,7 +104,7 @@ export function volumeByCategory(
   for (const session of sessions) {
     if (session.date < since) continue
     for (const ex of session.exercises) {
-      const exercise = EXERCISE_BY_ID[ex.exerciseId]
+      const exercise = getExercise(ex.exerciseId)
       if (!exercise) continue
       for (const set of ex.sets) {
         if (!set.completed) continue

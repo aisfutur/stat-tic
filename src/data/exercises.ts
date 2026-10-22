@@ -1728,9 +1728,39 @@ export const EXERCISES: Exercise[] = [
   },
 ]
 
-export const EXERCISE_BY_ID: Record<string, Exercise> = Object.fromEntries(
+/**
+ * Catalogue effectif = exercices intégrés + exercices créés par l'athlète.
+ *
+ * Les exercices perso vivent dans l'état applicatif (donc dans Supabase ou
+ * `localStorage`), mais `lib/stats.ts`, le seed et les écrans ont besoin de
+ * résoudre un identifiant sans traîner le contexte React partout : le
+ * `DataProvider` pousse la liste ici à chaque rendu, et tout le monde lit
+ * `getExercise()`.
+ */
+const BUILTIN_BY_ID: Record<string, Exercise> = Object.fromEntries(
   EXERCISES.map((e) => [e.id, e]),
 )
+
+let customExercises: Exercise[] = []
+let byId: Record<string, Exercise> = BUILTIN_BY_ID
+
+/** Appelé par le `DataProvider` quand la liste perso change. */
+export function setCustomExercises(list: Exercise[]): void {
+  customExercises = list
+  byId = list.length
+    ? { ...BUILTIN_BY_ID, ...Object.fromEntries(list.map((e) => [e.id, e])) }
+    : BUILTIN_BY_ID
+}
+
+/** Exercice par identifiant, intégré ou perso. */
+export function getExercise(id: string): Exercise | undefined {
+  return byId[id]
+}
+
+/** Catalogue complet : les exercices perso d'abord, plus faciles à retrouver. */
+export function allExercises(): Exercise[] {
+  return customExercises.length ? [...customExercises, ...EXERCISES] : EXERCISES
+}
 
 export const CATEGORY_LABEL: Record<Exercise['category'], string> = {
   push: 'Pousser',

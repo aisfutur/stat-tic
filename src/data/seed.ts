@@ -1,5 +1,5 @@
 import type { AppState, Session, SessionExercise, SetEntry } from '../types'
-import { EXERCISE_BY_ID } from './exercises'
+import { getExercise } from './exercises'
 import { ROUTINES } from './routines'
 import { addDays, toDayKey, uid } from '../lib/utils'
 import { STATE_VERSION } from './constants'
@@ -28,7 +28,7 @@ function buildSets(
   restSeconds: number,
   tempo?: string,
 ): SessionExercise {
-  const exercise = EXERCISE_BY_ID[exerciseId]
+  const exercise = getExercise(exerciseId)
   const entries: SetEntry[] = []
   for (let i = 0; i < sets; i++) {
     // Légère dégressivité sur les dernières séries, comme dans la vraie vie.
@@ -37,7 +37,7 @@ function buildSets(
     entries.push({
       id: uid('set'),
       weight: 0,
-      ...(exercise.type === 'time' ? { seconds: value } : { reps: value }),
+      ...(exercise?.type === 'time' ? { seconds: value } : { reps: value }),
       tempo,
       completed: true,
     })
@@ -130,6 +130,7 @@ export function makeSeedState(): AppState {
       { pathId: 'prog-backlever', currentStep: 2, unlockedAt: {} },
     ],
     customRoutines: [],
+    customExercises: [],
     activeRoutineId: 'rt-fb-3',
     settings: { name: 'Athlète', favoriteChartExerciseId: 'ex-pullup' },
   }

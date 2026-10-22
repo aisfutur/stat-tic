@@ -2,6 +2,12 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { IconX } from './Icons'
 
 /**
+ * Pile des feuilles ouvertes : seule celle du dessus réagit à Échap,
+ * sinon une touche fermerait d'un coup la feuille et celle qui l'a ouverte.
+ */
+const stack: symbol[] = []
+
+/**
  * Feuille modale remontant du bas (mobile) / centrée (desktop).
  * Ferme sur Échap et sur clic hors du panneau, et place le focus
  * à l'intérieur à l'ouverture.
@@ -21,29 +27,46 @@ export function Sheet({
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
 
+  // Les appelants passent presque toujours une lambda (`onClose={() => …}`),
+  // dont l'identité change à chaque rendu du parent — et l'écran de séance se
+  // rend une fois par seconde à cause du chrono. Sans cette indirection,
+  // l'effet ci-dessous rejouerait en boucle et reprendrait le focus au champ
+  // de recherche entre deux frappes.
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
   useEffect(() => {
     if (!open) return
+    const token = Symbol('sheet')
+    stack.push(token)
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      if (stack[stack.length - 1] !== token) return
+      closeRef.current()
     }
     document.addEventListener('keydown', onKey)
+
     // Empêche le scroll de l'arrière-plan pendant que la feuille est ouverte.
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     panelRef.current?.focus()
+
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = previous
+      const index = stack.lastIndexOf(token)
+      if (index !== -1) stack.splice(index, 1)
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
+        className="scrim absolute inset-0 backdrop-blur-sm"
+        onClick={() => closeRef.current()}
         aria-hidden="true"
       />
       <div
@@ -59,7 +82,7 @@ export function Sheet({
           <h2 className="font-display text-2xl leading-none">{title}</h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => closeRef.current()}
             className="rounded-full p-1.5 text-muted hover:bg-concrete-700 hover:text-chalk"
             aria-label="Fermer"
           >

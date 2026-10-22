@@ -25,6 +25,8 @@ export interface Exercise {
   progressionStep?: number
   /** 1 (accessible) → 5 (élite). */
   difficulty: 1 | 2 | 3 | 4 | 5
+  /** Exercice créé par l'athlète : absent du catalogue intégré, donc supprimable. */
+  custom?: boolean
 }
 
 /** Critère chiffré de passage à l'étape suivante d'une progression. */
@@ -136,6 +138,8 @@ export interface AppState {
   sessions: Session[]
   progress: UserProgress[]
   customRoutines: Routine[]
+  /** Exercices ajoutés par l'athlète, hors catalogue intégré. */
+  customExercises: Exercise[]
   /** Routine proposée sur l'accueil. */
   activeRoutineId?: string
   /** Séance en cours, restaurée telle quelle au rechargement de la page. */

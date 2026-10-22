@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '../hooks/useData'
-import { EXERCISE_BY_ID } from '../data/exercises'
+import { getExercise } from '../data/exercises'
 import { Sheet } from '../components/Sheet'
 import { IconArrowLeft, IconClock, IconTrash } from '../components/Icons'
 import { setValue } from '../lib/stats'
@@ -115,7 +115,7 @@ export function History() {
 
             <ul className="space-y-3">
               {detail.exercises.map((ex) => {
-                const exercise = EXERCISE_BY_ID[ex.exerciseId]
+                const exercise = getExercise(ex.exerciseId)
                 const isTime = exercise?.type === 'time'
                 return (
                   <li

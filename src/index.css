@@ -3,8 +3,50 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /**
+   * Thèmes. Les variables portent des canaux RVB (« 26 29 30 ») et non des
+   * couleurs complètes : c'est la forme attendue par `tailwind.config.js`
+   * pour conserver les modificateurs d'opacité (`bg-steel/20`).
+   *
+   * Le thème sombre est la valeur par défaut, le thème clair est appliqué via
+   * `data-theme="light"` posé sur <html> (voir `src/hooks/useTheme.tsx` et le
+   * script d'amorçage dans `index.html`). Les rôles sont identiques dans les
+   * deux thèmes : `concrete-900` = fond, `chalk` = texte.
+   */
+  :root,
+  :root[data-theme='dark'] {
     color-scheme: dark;
+
+    --c-concrete-900: 26 29 30;
+    --c-concrete-800: 36 40 42;
+    --c-concrete-700: 44 49 51;
+    --c-concrete-600: 54 59 61;
+    --c-chalk: 237 234 226;
+    --c-muted: 156 166 163;
+    --c-steel: 110 155 199;
+    --c-ember: 193 80 46;
+    --c-moss: 122 154 99;
+    --c-locked: 74 78 79;
+    /* Ombres et voiles de modale : noir sur fond sombre. */
+    --c-shadow: 0 0 0;
+    --c-scrim: 0 0 0;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+
+    --c-concrete-900: 242 239 232;
+    --c-concrete-800: 255 255 255;
+    --c-concrete-700: 232 228 218;
+    --c-concrete-600: 211 206 193;
+    --c-chalk: 32 35 38;
+    --c-muted: 92 102 100;
+    --c-steel: 42 102 155;
+    --c-ember: 168 62 31;
+    --c-moss: 76 109 54;
+    --c-locked: 124 131 125;
+    --c-shadow: 61 56 44;
+    --c-scrim: 42 38 32;
   }
 
   html,
@@ -20,7 +62,7 @@
 
   /* Accessibilité : focus clavier toujours visible, jamais sur clic souris */
   :focus-visible {
-    outline: 2px solid #6e9bc7;
+    outline: 2px solid rgb(var(--c-steel));
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -80,12 +122,25 @@
 
   /* Rail pointillé vertical de l'échelle de progression */
   .ladder-rail {
-    background-image: linear-gradient(to bottom, #4a4e4f 0 6px, transparent 6px 12px);
+    background-image: linear-gradient(
+      to bottom,
+      rgb(var(--c-locked)) 0 6px,
+      transparent 6px 12px
+    );
     background-size: 2px 12px;
     background-repeat: repeat-y;
   }
   .ladder-rail-done {
-    background-image: linear-gradient(to bottom, #7a9a63 0 6px, transparent 6px 12px);
+    background-image: linear-gradient(
+      to bottom,
+      rgb(var(--c-moss)) 0 6px,
+      transparent 6px 12px
+    );
+  }
+
+  /* Voile des feuilles modales : noir en sombre, brun très sombre en clair. */
+  .scrim {
+    background-color: rgb(var(--c-scrim) / 0.7);
   }
 }
 

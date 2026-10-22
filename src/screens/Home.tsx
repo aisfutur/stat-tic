@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useData } from '../hooks/useData'
 import { PROGRESSION_BY_ID } from '../data/progressions'
-import { EXERCISE_BY_ID } from '../data/exercises'
+import { getExercise } from '../data/exercises'
 import { MiniLadder } from '../components/ProgressionLadder'
 import {
   IconChevron,
@@ -161,7 +161,7 @@ export function Home() {
 
               <ul className="mt-4 space-y-1.5">
                 {activeRoutine.exercises.slice(0, 4).map((re, i) => {
-                  const ex = EXERCISE_BY_ID[re.exerciseId]
+                  const ex = getExercise(re.exerciseId)
                   return (
                     <li key={`${re.exerciseId}-${i}`} className="flex items-baseline gap-2 text-sm">
                       <span className="num w-5 shrink-0 text-xs text-locked">
@@ -215,7 +215,7 @@ export function Home() {
         <h2 className="mb-2 text-xl">Records</h2>
         <div className="grid grid-cols-3 gap-3">
           {quickStats.map((s) => {
-            const ex = EXERCISE_BY_ID[s.exerciseId]
+            const ex = getExercise(s.exerciseId)
             return (
               <div key={s.exerciseId} className="card p-3">
                 <p className="num text-2xl font-bold leading-none text-chalk">
@@ -257,7 +257,7 @@ export function Home() {
                 </div>
                 <MiniLadder path={path} currentStep={progress.currentStep} />
                 <p className="truncate text-xs text-muted">
-                  {EXERCISE_BY_ID[step.exerciseId]?.name} ·{' '}
+                  {getExercise(step.exerciseId)?.name} ·{' '}
                   <span className="num">{step.criterion.label}</span>
                 </p>
               </Link>

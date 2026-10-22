@@ -1,4 +1,4 @@
-import type { AppState } from '../types'
+import type { AppState, Exercise } from '../types'
 import { makeSeedState } from './seed'
 import { STATE_VERSION, STORAGE_KEY } from './constants'
 
@@ -16,6 +16,34 @@ export interface Repository {
   clear(): Promise<void>
 }
 
+/**
+ * Garde-fou sur les exercices perso : un import ou un état d'une version
+ * antérieure peut en manquer, ou en contenir d'incomplets.
+ */
+function sanitizeExercises(raw: unknown): Exercise[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item): Exercise[] => {
+    if (!item || typeof item !== 'object') return []
+    const ex = item as Partial<Exercise>
+    if (typeof ex.id !== 'string' || typeof ex.name !== 'string') return []
+    return [
+      {
+        id: ex.id,
+        name: ex.name,
+        category: ex.category ?? 'push',
+        type: ex.type === 'time' ? 'time' : 'reps',
+        muscles: Array.isArray(ex.muscles) ? ex.muscles.filter((m) => typeof m === 'string') : [],
+        description: typeof ex.description === 'string' ? ex.description : '',
+        commonMistakes: Array.isArray(ex.commonMistakes)
+          ? ex.commonMistakes.filter((m) => typeof m === 'string')
+          : [],
+        difficulty: ex.difficulty ?? 1,
+        custom: true,
+      },
+    ]
+  })
+}
+
 /** Migre un état d'une version antérieure. */
 function migrate(raw: unknown): AppState | null {
   if (!raw || typeof raw !== 'object') return null
@@ -27,6 +55,8 @@ function migrate(raw: unknown): AppState | null {
     sessions: candidate.sessions ?? [],
     progress: candidate.progress ?? [],
     customRoutines: candidate.customRoutines ?? [],
+    // Absent des états v1 : la liste vide est la bonne valeur par défaut.
+    customExercises: sanitizeExercises(candidate.customExercises),
     activeRoutineId: candidate.activeRoutineId,
     activeSession: candidate.activeSession,
     settings: {

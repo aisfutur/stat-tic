@@ -1,5 +1,5 @@
 import type { ProgressionPath } from '../types'
-import { EXERCISE_BY_ID } from '../data/exercises'
+import { getExercise } from '../data/exercises'
 import { IconCheck, IconLock } from './Icons'
 import { cx } from '../lib/utils'
 
@@ -69,7 +69,7 @@ export function ProgressionLadder({ path, currentStep, onSelectStep }: LadderPro
   return (
     <ol className="relative">
       {path.steps.map((step, i) => {
-        const exercise = EXERCISE_BY_ID[step.exerciseId]
+        const exercise = getExercise(step.exerciseId)
         const state = rungState(i, currentStep)
         const isLast = i === path.steps.length - 1
 

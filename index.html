@@ -15,6 +15,25 @@
     />
   </head>
   <body>
+    <script>
+      // Applique le thème avant la première peinture : sans ça, un athlète en
+      // thème clair verrait l'app s'afficher en sombre le temps que React
+      // monte. Doit rester synchrone, sans module, et aligné sur
+      // `src/hooks/useTheme.tsx`.
+      (function () {
+        try {
+          var choice = localStorage.getItem('barre.theme.v1') || 'system'
+          var dark =
+            choice === 'dark' ||
+            (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', dark ? '#1A1D1E' : '#F2EFE8')
+        } catch (err) {
+          document.documentElement.dataset.theme = 'dark'
+        }
+      })()
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

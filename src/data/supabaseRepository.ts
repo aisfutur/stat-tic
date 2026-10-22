@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   AppState,
+  Exercise,
   Routine,
   RoutineExercise,
   Session,
@@ -79,6 +80,17 @@ interface SessionRow {
   session_exercises: SessionExerciseRow[]
 }
 
+interface ExerciseRow {
+  id: string
+  name: string
+  category: Exercise['category']
+  type: Exercise['type']
+  muscles: string[] | null
+  description: string | null
+  common_mistakes: string[] | null
+  difficulty: number
+}
+
 interface RoutineExerciseRow {
   exercise_id: string
   position: number
@@ -111,6 +123,9 @@ const SESSION_SELECT =
   'id, date, started_at, ended_at, routine_id, name, duration_seconds,' +
   ' session_exercises (id, exercise_id, position, notes, rest_seconds, superset_group,' +
   ' sets (id, position, weight, reps, seconds, tempo, completed))'
+
+const EXERCISE_SELECT =
+  'id, name, category, type, muscles, description, common_mistakes, difficulty'
 
 const ROUTINE_SELECT =
   'id, name, level, track, category, frequency_per_week, estimated_minutes,' +
@@ -217,6 +232,20 @@ function mapSession(row: SessionRow): Session {
   }
 }
 
+function mapExercise(row: ExerciseRow): Exercise {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    type: row.type,
+    muscles: row.muscles ?? [],
+    description: row.description ?? '',
+    commonMistakes: row.common_mistakes ?? [],
+    difficulty: (row.difficulty as Exercise['difficulty']) ?? 1,
+    custom: true,
+  }
+}
+
 function mapRoutine(row: RoutineRow): Routine {
   return {
     id: row.id,
@@ -242,12 +271,15 @@ function mapRoutine(row: RoutineRow): Routine {
 }
 
 async function fetchState(db: SupabaseClient, uid: string): Promise<AppState> {
-  const [profile, routines, progress, unlocks, sessions] = await Promise.all([
+  const [profile, exercises, routines, progress, unlocks, sessions] = await Promise.all([
     db
       .from('profiles')
       .select('display_name, active_routine_id, favorite_chart_exercise_id')
       .eq('id', uid)
       .maybeSingle(),
+    // Le catalogue intégré (user_id null) reste décrit en TypeScript : on ne
+    // lit ici que les exercices créés par l'athlète.
+    db.from('exercises').select(EXERCISE_SELECT).eq('user_id', uid),
     db.from('routines').select(ROUTINE_SELECT).eq('user_id', uid),
     db.from('user_progress').select('path_id, current_step').eq('user_id', uid),
     db.from('progression_unlocks').select('path_id, step, unlocked_on').eq('user_id', uid),
@@ -256,6 +288,7 @@ async function fetchState(db: SupabaseClient, uid: string): Promise<AppState> {
   ])
 
   if (profile.error) throw new Error(profile.error.message)
+  if (exercises.error) throw new Error(exercises.error.message)
   if (routines.error) throw new Error(routines.error.message)
   if (progress.error) throw new Error(progress.error.message)
   if (unlocks.error) throw new Error(unlocks.error.message)
@@ -284,6 +317,7 @@ async function fetchState(db: SupabaseClient, uid: string): Promise<AppState> {
       }),
     ),
     customRoutines: ((routines.data ?? []) as unknown as RoutineRow[]).map(mapRoutine),
+    customExercises: ((exercises.data ?? []) as unknown as ExerciseRow[]).map(mapExercise),
     activeRoutineId: row?.active_routine_id ?? undefined,
     settings: {
       name: row?.display_name ?? 'Athlète',
@@ -297,11 +331,51 @@ function isFreshAccount(state: AppState) {
     state.sessions.length === 0 &&
     state.progress.length === 0 &&
     state.customRoutines.length === 0 &&
+    state.customExercises.length === 0 &&
     !state.activeSession
   )
 }
 
 // ─── Écriture ───────────────────────────────────────────────────────
+
+/**
+ * Pousse les exercices perso. Appelé AVANT tout le reste : une routine ou une
+ * série fraîchement créée peut déjà pointer vers un exercice perso, et la base
+ * refuse une référence vers une ligne absente.
+ */
+async function syncExercises(db: SupabaseClient, uid: string, state: AppState, prev: AppState | null) {
+  const previous = new Map((prev?.customExercises ?? []).map((e) => [e.id, e]))
+  const changed = state.customExercises.filter((e) => !sameJson(e, previous.get(e.id)))
+  if (!changed.length) return
+
+  await run(
+    db.from('exercises').upsert(
+      changed.map((e) => ({
+        id: e.id,
+        user_id: uid,
+        name: e.name,
+        category: e.category,
+        type: e.type,
+        muscles: e.muscles,
+        description: e.description,
+        common_mistakes: e.commonMistakes,
+        difficulty: e.difficulty,
+      })),
+    ),
+  )
+}
+
+/**
+ * Suppressions d'exercices perso, en toute fin de synchronisation : la base
+ * interdit (`on delete restrict`) d'effacer un exercice encore référencé par
+ * une série, et les séances concernées viennent peut-être d'être supprimées.
+ */
+async function pruneExercises(db: SupabaseClient, uid: string, state: AppState, prev: AppState | null) {
+  const kept = new Set(state.customExercises.map((e) => e.id))
+  const removed = (prev?.customExercises ?? []).map((e) => e.id).filter((id) => !kept.has(id))
+  if (!removed.length) return
+  await run(db.from('exercises').delete().eq('user_id', uid).in('id', removed))
+}
 
 async function syncRoutines(db: SupabaseClient, uid: string, state: AppState, prev: AppState | null) {
   const previous = new Map((prev?.customRoutines ?? []).map((r) => [r.id, r]))
@@ -474,6 +548,7 @@ async function sync(state: AppState) {
   if (!uid) return
 
   const prev = snapshot
+  await syncExercises(db, uid, state, prev)
   await syncRoutines(db, uid, state, prev)
 
   if (!prev || !sameJson(profileOf(state), profileOf(prev))) {
@@ -483,6 +558,7 @@ async function sync(state: AppState) {
     await syncProgress(db, uid, state)
   }
   await syncSessions(db, uid, state, prev)
+  await pruneExercises(db, uid, state, prev)
 
   // Instantané mis à jour seulement si tout est passé : un échec en cours de
   // route laisse l'ancien, et la prochaine sauvegarde rejoue les différences.
@@ -574,6 +650,7 @@ export const supabaseRepository: Repository = {
     await run(db.from('progression_unlocks').delete().eq('user_id', uid))
     await run(db.from('user_progress').delete().eq('user_id', uid))
     await run(db.from('routines').delete().eq('user_id', uid))
+    await run(db.from('exercises').delete().eq('user_id', uid))
     await run(
       db
         .from('profiles')

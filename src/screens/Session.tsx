@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../hooks/useData'
-import { EXERCISE_BY_ID } from '../data/exercises'
+import { getExercise } from '../data/exercises'
 import { SessionExerciseCard } from '../components/SessionExerciseCard'
 import { ExercisePicker } from '../components/ExercisePicker'
 import { RestTimer } from '../components/RestTimer'
@@ -154,9 +154,9 @@ export function Session() {
     const remainingHere = current.sets.filter((s) => !s.completed).length > 1
 
     const label = remainingHere
-      ? `${EXERCISE_BY_ID[current.exerciseId]?.name} · série suivante`
+      ? `${getExercise(current.exerciseId)?.name} · série suivante`
       : nextExercise
-        ? EXERCISE_BY_ID[nextExercise.exerciseId]?.name
+        ? getExercise(nextExercise.exerciseId)?.name
         : 'Dernière série terminée'
 
     if (current.restSeconds && current.restSeconds > 0) {
@@ -225,7 +225,7 @@ export function Session() {
       ) : (
         <div className="space-y-3">
           {session.exercises.map((sex, i) => {
-            const exercise = EXERCISE_BY_ID[sex.exerciseId]
+            const exercise = getExercise(sex.exerciseId)
             if (!exercise) return null
             return (
               <SessionExerciseCard

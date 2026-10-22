@@ -12,7 +12,8 @@ import {
   YAxis,
 } from 'recharts'
 import { useData } from '../hooks/useData'
-import { EXERCISE_BY_ID } from '../data/exercises'
+import { useThemeColors } from '../hooks/useTheme'
+import { getExercise } from '../data/exercises'
 import { Heatmap } from '../components/Heatmap'
 import { Sheet } from '../components/Sheet'
 import { IconChevron } from '../components/Icons'
@@ -26,15 +27,15 @@ import {
 } from '../lib/stats'
 import { cx, formatShortDate, formatShortDuration } from '../lib/utils'
 
-const COLORS = { steel: '#6E9BC7', ember: '#C1502E', moss: '#7A9A63', muted: '#9CA6A3' }
-
 export function Stats() {
   const { state, setFavoriteChartExercise } = useData()
+  // Recharts attend des couleurs, pas des classes : on les relit dans le thème.
+  const colors = useThemeColors()
   const sessions = state.sessions
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const chartExerciseId = state.settings.favoriteChartExerciseId ?? 'ex-pullup'
-  const chartExercise = EXERCISE_BY_ID[chartExerciseId]
+  const chartExercise = getExercise(chartExerciseId)
   const isTime = chartExercise?.type === 'time'
 
   const chartData = useMemo(
@@ -57,15 +58,15 @@ export function Stats() {
   const available = useMemo(
     () =>
       loggedExerciseIds(sessions)
-        .map((id) => EXERCISE_BY_ID[id])
+        .map((id) => getExercise(id))
         .filter((e): e is NonNullable<typeof e> => Boolean(e))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [sessions],
   )
 
   const donutData = [
-    { name: 'Pousser', value: balance.push, color: COLORS.ember },
-    { name: 'Tirer', value: balance.pull, color: COLORS.steel },
+    { name: 'Pousser', value: balance.push, color: colors.ember },
+    { name: 'Tirer', value: balance.pull, color: colors.steel },
   ]
 
   if (sessions.length === 0) {
@@ -152,17 +153,17 @@ export function Stats() {
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -24 }}>
-                <CartesianGrid stroke="#363B3D" vertical={false} />
+                <CartesianGrid stroke={colors.border} vertical={false} />
                 <XAxis
                   dataKey="label"
-                  stroke="#9CA6A3"
+                  stroke={colors.muted}
                   tick={{ fontSize: 10, fontFamily: 'JetBrains Mono' }}
                   tickLine={false}
-                  axisLine={{ stroke: '#363B3D' }}
+                  axisLine={{ stroke: colors.border }}
                   minTickGap={24}
                 />
                 <YAxis
-                  stroke="#9CA6A3"
+                  stroke={colors.muted}
                   tick={{ fontSize: 10, fontFamily: 'JetBrains Mono' }}
                   tickLine={false}
                   axisLine={false}
@@ -170,12 +171,13 @@ export function Stats() {
                 />
                 <Tooltip
                   contentStyle={{
-                    background: '#24282A',
-                    border: '1px solid #363B3D',
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: 12,
                     fontSize: 12,
+                    color: colors.chalk,
                   }}
-                  labelStyle={{ color: '#9CA6A3' }}
+                  labelStyle={{ color: colors.muted }}
                   formatter={(value: number) => [
                     `${value} ${isTime ? 's' : 'reps'}`,
                     'Meilleure série',
@@ -184,9 +186,9 @@ export function Stats() {
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke={COLORS.steel}
+                  stroke={colors.steel}
                   strokeWidth={2.5}
-                  dot={{ r: 3, fill: COLORS.steel, strokeWidth: 0 }}
+                  dot={{ r: 3, fill: colors.steel, strokeWidth: 0 }}
                   activeDot={{ r: 5 }}
                 />
               </LineChart>

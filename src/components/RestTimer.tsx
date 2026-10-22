@@ -1,5 +1,6 @@
 import { formatDuration } from '../lib/utils'
 import type { Countdown } from '../hooks/useTimers'
+import { useThemeColors } from '../hooks/useTheme'
 import { IconPlus, IconX } from './Icons'
 
 const SIZE = 72
@@ -12,6 +13,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
  * série, et raccourcis +30 s / passer.
  */
 export function RestTimer({ timer }: { timer: Countdown }) {
+  const colors = useThemeColors()
   if (!timer.running) return null
 
   const ratio = timer.total > 0 ? timer.remaining / timer.total : 0
@@ -33,7 +35,7 @@ export function RestTimer({ timer }: { timer: Countdown }) {
               cy={SIZE / 2}
               r={RADIUS}
               fill="none"
-              stroke="#4A4E4F"
+              stroke={colors.locked}
               strokeWidth={STROKE}
             />
             <circle
@@ -41,7 +43,7 @@ export function RestTimer({ timer }: { timer: Countdown }) {
               cy={SIZE / 2}
               r={RADIUS}
               fill="none"
-              stroke="#6E9BC7"
+              stroke={colors.steel}
               strokeWidth={STROKE}
               strokeLinecap="round"
               strokeDasharray={CIRCUMFERENCE}

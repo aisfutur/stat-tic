@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Category, Routine, RoutineExercise } from '../types'
 import { useData } from '../hooks/useData'
-import { CATEGORY_LABEL, EXERCISE_BY_ID } from '../data/exercises'
+import { CATEGORY_LABEL, getExercise } from '../data/exercises'
 import { Sheet } from '../components/Sheet'
 import { ExercisePicker } from '../components/ExercisePicker'
 import {
@@ -235,7 +235,7 @@ export function Routines() {
 
             <ul className="space-y-2">
               {detail.exercises.map((re, i) => {
-                const ex = EXERCISE_BY_ID[re.exerciseId]
+                const ex = getExercise(re.exerciseId)
                 return (
                   <li
                     key={`${re.exerciseId}-${i}`}
@@ -295,7 +295,7 @@ function RoutineCreator({ open, onClose }: { open: boolean; onClose: () => void 
   }
 
   function addItem(exerciseId: string) {
-    const ex = EXERCISE_BY_ID[exerciseId]
+    const ex = getExercise(exerciseId)
     setItems((list) => [
       ...list,
       {
@@ -458,7 +458,7 @@ function RoutineCreator({ open, onClose }: { open: boolean; onClose: () => void 
             ) : (
               <ul className="space-y-2">
                 {items.map((it, i) => {
-                  const ex = EXERCISE_BY_ID[it.exerciseId]
+                  const ex = getExercise(it.exerciseId)
                   const isTime = ex?.type === 'time'
                   return (
                     <li

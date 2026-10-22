@@ -33,7 +33,7 @@ React 18 + TypeScript, Vite 5, Tailwind CSS 3, React Router 6, Recharts,
 | `/routines` | Routines | Plans par niveaux + création de routine personnalisée |
 | `/stats` | Statistiques | Courbe d'évolution, ratio pousser/tirer, heatmap 12 semaines |
 | `/historique` | Historique | Séances passées, détail, suppression |
-| `/reglages` | Réglages | Nom, export / import JSON, réinitialisation |
+| `/reglages` | Réglages | Nom, thème (sombre / clair / système), export / import JSON, réinitialisation |
 
 ## Architecture
 
@@ -45,11 +45,12 @@ src/
     repository.ts       Interface Repository + implémentation localStorage
     supabaseRepository.ts  Implémentation Supabase (séances, progressions, perso)
     seed.ts             Historique de démonstration (10 semaines)
-    exercises.ts        Catalogue d'exercices
+    exercises.ts        Catalogue d'exercices + registre des exercices perso
     progressions.ts     Échelles de progression et critères
     routines.ts         Routines intégrées
   hooks/
     useData.tsx         Store applicatif + toutes les actions
+    useTheme.tsx        Thème sombre / clair (réglage par appareil)
     useTimers.ts        Chrono de séance et minuteur de repos
   lib/
     supabase.ts         Client Supabase, `null` si le projet n'est pas configuré
@@ -96,7 +97,31 @@ et de la passer au provider :
 <DataProvider repository={monRepositoryDistant}>
 ```
 
-Aucun composant ne touche à `localStorage` directement.
+Aucun composant ne touche à `localStorage` directement — à une exception près,
+assumée : le thème (`hooks/useTheme.tsx`). C'est un réglage d'appareil et non
+de compte, et il doit s'appliquer avant le chargement des données, donc avant
+que le `Repository` ait répondu.
+
+## Thème
+
+Les couleurs sont des variables CSS définies deux fois dans `src/index.css`
+(sombre par défaut, clair sous `[data-theme='light']`), et `tailwind.config.js`
+n'y fait que référence. Les noms décrivent un rôle, pas une teinte :
+`concrete-900` est toujours le fond, `chalk` toujours le texte. Un composant
+n'a donc rien à faire du thème actif ; seuls Recharts et les attributs `stroke`
+des SVG, qui exigent une couleur et non une classe, passent par
+`useThemeColors()`. Un script d'amorçage dans `index.html` pose
+`data-theme` avant la première peinture pour éviter un flash sombre.
+
+## Exercices personnalisés
+
+Le catalogue intégré (132 exercices) vit dans `src/data/exercises.ts`. Un
+exercice créé depuis le sélecteur est stocké dans `AppState.customExercises`
+— donc dans la table `exercises` de Supabase avec `user_id = auth.uid()`, ou
+dans `localStorage`. Comme `lib/stats.ts` et le seed doivent résoudre un
+identifiant sans contexte React, le `DataProvider` publie la liste dans le
+registre de `data/exercises.ts` pendant son rendu, et tout le code lit
+`getExercise(id)`.
 
 ## Déployer sur Vercel
 

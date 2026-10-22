@@ -10,23 +10,37 @@ import {
 } from 'react'
 import type {
   AppState,
+  Exercise,
   Routine,
   Session,
   SessionExercise,
   SetEntry,
   UserProgress,
 } from '../types'
-import { EXERCISE_BY_ID } from '../data/exercises'
+import { allExercises, getExercise, setCustomExercises } from '../data/exercises'
 import { ROUTINES } from '../data/routines'
 import { localRepository, parseImportedState, type Repository } from '../data/repository'
+import { STATE_VERSION } from '../data/constants'
 import { makeSeedState } from '../data/seed'
 import { toDayKey, uid } from '../lib/utils'
+
+/** Champs saisis dans le formulaire « nouvel exercice ». */
+export interface NewExerciseInput {
+  name: string
+  category: Exercise['category']
+  type: Exercise['type']
+  muscles?: string[]
+  description?: string
+  difficulty?: Exercise['difficulty']
+}
 
 interface DataContextValue {
   state: AppState
   loading: boolean
   /** Routines intégrées + routines personnalisées. */
   routines: Routine[]
+  /** Catalogue intégré + exercices perso. */
+  exercises: Exercise[]
   activeRoutine?: Routine
   progressFor(pathId: string): UserProgress
 
@@ -50,6 +64,12 @@ interface DataContextValue {
   addCustomRoutine(routine: Omit<Routine, 'id' | 'custom'>): Routine
   deleteCustomRoutine(routineId: string): void
 
+  // Exercices perso
+  addCustomExercise(input: NewExerciseInput): Exercise
+  deleteCustomExercise(exerciseId: string): void
+  /** Vrai si l'exercice est référencé par une séance ou une routine perso. */
+  isExerciseInUse(exerciseId: string): boolean
+
   // Réglages & données
   setFavoriteChartExercise(exerciseId: string): void
   setUserName(name: string): void
@@ -61,10 +81,11 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | null>(null)
 
 const EMPTY_STATE: AppState = {
-  version: 1,
+  version: STATE_VERSION,
   sessions: [],
   progress: [],
   customRoutines: [],
+  customExercises: [],
   settings: { name: 'Athlète' },
 }
 
@@ -112,6 +133,17 @@ export function DataProvider({
     [state.customRoutines],
   )
 
+  // Publie les exercices perso dans le registre du catalogue *pendant* le
+  // rendu : les enfants (et les helpers non-React de `lib/stats.ts`) doivent
+  // pouvoir résoudre un identifiant perso dès ce même rendu, ce qu'un
+  // `useEffect` — exécuté après — ne garantirait pas.
+  // Nommé `catalogue` et non `exercises` : `startSession` déclare déjà un
+  // `exercises` local, qui est une liste d'exercices DE SÉANCE.
+  const catalogue = useMemo(() => {
+    setCustomExercises(state.customExercises)
+    return allExercises()
+  }, [state.customExercises])
+
   const activeRoutine = useMemo(
     () => routines.find((r) => r.id === state.activeRoutineId),
     [routines, state.activeRoutineId],
@@ -132,7 +164,7 @@ export function DataProvider({
     (routineId, name) => {
       const routine = routineId ? routines.find((r) => r.id === routineId) : undefined
       const exercises: SessionExercise[] = (routine?.exercises ?? []).map((re) => {
-        const exercise = EXERCISE_BY_ID[re.exerciseId]
+        const exercise = getExercise(re.exerciseId)
         const sets: SetEntry[] = Array.from({ length: re.sets }, () => ({
           id: uid('set'),
           weight: 0,
@@ -225,7 +257,7 @@ export function DataProvider({
 
   const addExerciseToSession = useCallback<DataContextValue['addExerciseToSession']>(
     (exerciseId) => {
-      const exercise = EXERCISE_BY_ID[exerciseId]
+      const exercise = getExercise(exerciseId)
       if (!exercise) return
       patchActive((session) => ({
         ...session,
@@ -363,6 +395,47 @@ export function DataProvider({
     [],
   )
 
+  const addCustomExercise = useCallback<DataContextValue['addCustomExercise']>(
+    (input) => {
+      const created: Exercise = {
+        id: uid('ex-perso'),
+        name: input.name.trim(),
+        category: input.category,
+        type: input.type,
+        muscles: (input.muscles ?? []).map((m) => m.trim()).filter(Boolean),
+        description: input.description?.trim() ?? '',
+        commonMistakes: [],
+        difficulty: input.difficulty ?? 1,
+        custom: true,
+      }
+      setState((s) => ({ ...s, customExercises: [...s.customExercises, created] }))
+      return created
+    },
+    [],
+  )
+
+  const isExerciseInUse = useCallback<DataContextValue['isExerciseInUse']>(
+    (exerciseId) => {
+      const inSessions = [...state.sessions, ...(state.activeSession ? [state.activeSession] : [])]
+      return (
+        inSessions.some((session) => session.exercises.some((ex) => ex.exerciseId === exerciseId)) ||
+        state.customRoutines.some((r) => r.exercises.some((re) => re.exerciseId === exerciseId)) ||
+        state.settings.favoriteChartExerciseId === exerciseId
+      )
+    },
+    [state.sessions, state.activeSession, state.customRoutines, state.settings.favoriteChartExerciseId],
+  )
+
+  const deleteCustomExercise = useCallback<DataContextValue['deleteCustomExercise']>(
+    (exerciseId) => {
+      setState((s) => ({
+        ...s,
+        customExercises: s.customExercises.filter((ex) => ex.id !== exerciseId),
+      }))
+    },
+    [],
+  )
+
   const setFavoriteChartExercise = useCallback<
     DataContextValue['setFavoriteChartExercise']
   >((exerciseId) => {
@@ -391,6 +464,7 @@ export function DataProvider({
       state,
       loading,
       routines,
+      exercises: catalogue,
       activeRoutine,
       progressFor,
       startSession,
@@ -407,6 +481,9 @@ export function DataProvider({
       setActiveRoutine,
       addCustomRoutine,
       deleteCustomRoutine,
+      addCustomExercise,
+      deleteCustomExercise,
+      isExerciseInUse,
       setFavoriteChartExercise,
       setUserName,
       exportData,
@@ -417,6 +494,7 @@ export function DataProvider({
       state,
       loading,
       routines,
+      catalogue,
       activeRoutine,
       progressFor,
       startSession,
@@ -433,6 +511,9 @@ export function DataProvider({
       setActiveRoutine,
       addCustomRoutine,
       deleteCustomRoutine,
+      addCustomExercise,
+      deleteCustomExercise,
+      isExerciseInUse,
       setFavoriteChartExercise,
       setUserName,
       exportData,

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Category } from '../types'
 import { useData } from '../hooks/useData'
 import { PROGRESSIONS } from '../data/progressions'
-import { CATEGORY_LABEL, EXERCISE_BY_ID } from '../data/exercises'
+import { CATEGORY_LABEL, getExercise } from '../data/exercises'
 import { ProgressionLadder, StatusBadge, rungState } from '../components/ProgressionLadder'
 import { Sheet } from '../components/Sheet'
 import { IconCheck, IconLock } from '../components/Icons'
@@ -37,7 +37,7 @@ export function Progressions() {
 
   const detailPath = detail ? PROGRESSIONS.find((p) => p.id === detail.pathId) : undefined
   const detailStep = detailPath?.steps[detail!.step]
-  const detailExercise = detailStep ? EXERCISE_BY_ID[detailStep.exerciseId] : undefined
+  const detailExercise = detailStep ? getExercise(detailStep.exerciseId) : undefined
   const detailProgress = detailPath ? progressFor(detailPath.id) : undefined
   const detailState =
     detail && detailProgress ? rungState(detail.step, detailProgress.currentStep) : 'locked'

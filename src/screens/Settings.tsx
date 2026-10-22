@@ -1,14 +1,23 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '../hooks/useData'
+import { useTheme, type ThemeChoice } from '../hooks/useTheme'
 import { IconArrowLeft, IconDownload, IconTrash, IconUpload } from '../components/Icons'
 import { Sheet } from '../components/Sheet'
 import { AccountCard } from '../components/AccountCard'
 import { supabase } from '../lib/supabase'
-import { toDayKey } from '../lib/utils'
+import { cx, toDayKey } from '../lib/utils'
+
+/** Libellés du sélecteur de thème, « Système » en premier car c'est le défaut. */
+const THEME_OPTIONS: Array<{ value: ThemeChoice; label: string; hint: string }> = [
+  { value: 'system', label: 'Système', hint: 'Suit le réglage du téléphone' },
+  { value: 'dark', label: 'Sombre', hint: 'Béton, pour la salle le soir' },
+  { value: 'light', label: 'Clair', hint: 'Craie, pour le plein jour' },
+]
 
 export function Settings() {
   const { state, setUserName, exportData, importData, resetData } = useData()
+  const { choice: themeChoice, theme, setChoice: setThemeChoice } = useTheme()
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
@@ -68,6 +77,54 @@ export function Settings() {
       </section>
 
       <section className="card p-4">
+        <h2 className="text-xl leading-none">Apparence</h2>
+        <p className="mt-1.5 text-sm text-muted">
+          Le thème est propre à cet appareil : il n’est pas synchronisé avec ton compte.
+        </p>
+
+        <div
+          role="radiogroup"
+          aria-label="Thème de l’interface"
+          className="mt-3 grid gap-2 sm:grid-cols-3"
+        >
+          {THEME_OPTIONS.map((option) => {
+            const selected = themeChoice === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setThemeChoice(option.value)}
+                className={cx(
+                  'rounded-soft border px-3 py-2.5 text-left transition-colors',
+                  selected
+                    ? 'border-steel bg-steel/15'
+                    : 'border-concrete-600 bg-concrete-700/40 hover:bg-concrete-700',
+                )}
+              >
+                <p
+                  className={cx(
+                    'font-display text-lg leading-none',
+                    selected ? 'text-steel' : 'text-chalk',
+                  )}
+                >
+                  {option.label}
+                </p>
+                <p className="mt-1 text-[11px] leading-snug text-muted">{option.hint}</p>
+              </button>
+            )
+          })}
+        </div>
+
+        {themeChoice === 'system' && (
+          <p className="mt-2 text-xs text-muted">
+            Actuellement : <span className="text-chalk">{theme === 'dark' ? 'sombre' : 'clair'}</span>.
+          </p>
+        )}
+      </section>
+
+      <section className="card p-4">
         <h2 className="text-xl leading-none">Mes données</h2>
         <p className="mt-1.5 text-sm text-muted">
           {supabase
@@ -75,7 +132,8 @@ export function Settings() {
             : 'Tout est stocké dans ce navigateur. Il n’y a pas de compte ni de sauvegarde cloud : exporte régulièrement si tes données comptent.'}
         </p>
         <p className="num mt-3 text-sm text-chalk">
-          {sessionCount} séances · {state.customRoutines.length} routines perso
+          {sessionCount} séances · {state.customRoutines.length} routines perso ·{' '}
+          {state.customExercises.length} exercices perso
         </p>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">

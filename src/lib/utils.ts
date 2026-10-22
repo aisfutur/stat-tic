@@ -87,3 +87,23 @@ export function formatRelativeDay(key: string): string {
 }
 
 export const WEEKDAY_INITIALS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+
+/**
+ * Minuscules sans accents : « Épaules » → « epaules ».
+ * Indispensable pour la recherche, le catalogue étant en français.
+ */
+export function normalizeText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim()
+}
+
+/**
+ * Découpe une requête en mots normalisés. Chaque mot devra être trouvé
+ * (ET logique) : « pompe incl » doit remonter « Pompe inclinée ».
+ */
+export function searchTokens(query: string): string[] {
+  return normalizeText(query).split(/\s+/).filter(Boolean)
+}
